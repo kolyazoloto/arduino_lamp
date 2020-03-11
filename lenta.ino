@@ -1,12 +1,16 @@
 #include <Adafruit_NeoPixel.h>
 #include <Ticker.h>
 #include <ESP8266WiFi.h>
+#include <PubSubClient.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 
 const char* ssid = "LALALA";
 const char* password = "Kolyathegod";
+const char* mqtt_server = "192.168.1.10";
+WiFiClient espClient;
+PubSubClient client(espClient);
 #define LED_ROW 16
 #define LED_COL 10
 // Указываем, какое количество пикселей у нашей ленты.
@@ -16,7 +20,73 @@ const char* password = "Kolyathegod";
 #define LED_PIN 13
 int mode = 0;
 int color = 0;
+int get10Num(char bukva){
+  switch (bukva){
+    case '0':
+      return 0;
+      break;
+    case '1':
+      return 1;
+      break; 
+    case '2':
+      return 2;
+      break;  
+    case '3':
+      return 3;
+      break;  
+    case '4':
+      return 4;
+      break;  
+    case '5':
+      return 5;
+      break;  
+    case '6':
+      return 6;
+      break;
+     case '7':
+      return 7;
+      break;  
+    case '8':
+      return 8;
+      break;  
+    case '9':
+      return 9;
+      break;  
+    case 'a':
+      return 10;
+      break;  
+    case 'b':
+      return 11;
+      break;  
+    case 'c':
+      return 12;
+      break;
+    case 'd':
+      return 13;
+      break;  
+    case 'e':
+      return 14;
+      break;
+    case 'f':
+      return 15;
+      break;       
+  }   
+}
+void callbackOnOff(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  char* payloadSTR = (char*)payload;
+  int r = get10Num(payloadSTR[0])*16+get10Num(payloadSTR[1]);
+  int g = get10Num(payloadSTR[2])*16+get10Num(payloadSTR[3]);
+  int b = get10Num(payloadSTR[4])*16+get10Num(payloadSTR[5]);
+  Serial.print(r);
+  Serial.print(' ');
+  Serial.print(g);
+  Serial.print(' ');
+  Serial.println(b);
 
+}
 // Создаем переменную strip для управления нашей лентой.
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
   
@@ -725,6 +795,27 @@ void callback(){
   
   buttonPushed = 0; 
 }
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Create a random client ID
+    String clientId = "ESP8266Client-";
+    clientId += String(random(0xffff), HEX);
+    // Attempt to connect
+    if (client.connect(clientId.c_str())) {
+      Serial.println("connected");
+      // Once connected, publish an announcement...
+      client.subscribe("homeassistant/light/ESP-3bd20b/rgb/set");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
 void setup()
 {
   pinMode(BUTTON, INPUT_PULLUP);
@@ -761,10 +852,16 @@ void setup()
   Serial.println("Ready");  //  "Готово"
   Serial.print("IP address: ");  //  "IP-адрес: "
   Serial.println(WiFi.localIP());
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callbackOnOff);
 }
 
 void loop()
  {  ArduinoOTA.handle();
+    if (!client.connected()) {
+     reconnect();
+    }
+    client.loop();
     if (mode == 1){
       if (color == 0){
           strip.fill(strip.Color(255, 109, 0));
