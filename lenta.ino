@@ -21,6 +21,7 @@ PubSubClient client(espClient);
 int mode = 0;
 bool OnOFF = 0;
 int color = 0;
+                    
 int get10Num(char bukva){
   switch (bukva){
     case '0':
@@ -76,7 +77,13 @@ int get10Num(char bukva){
 
 // Создаем переменную strip для управления нашей лентой.
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
-  
+int rgbColorMode0 = strip.Color(255, 109, 0);
+int rgbColorMode0preset[6] = {strip.Color(255, 109, 0),
+                    strip.Color(255, 138, 18),
+                    strip.Color(255, 161, 72),
+                    strip.Color(255, 180, 107),
+                    strip.Color(255, 196, 137),
+                    strip.Color(255, 209, 163)};
 void on_lines(int r,int g,int b,int vverhILIvniz=0, int st = 0, int fin = LED_COL){
   for (int i = st; i < fin; i++)
     { 
@@ -504,9 +511,6 @@ ICACHE_RAM_ATTR void interruptRisingFunc(){
     Serial.println (buttonPushed);
   }
 }
-
-
-
 void callback(){
   if (buttonPushed == 1){
     mode++;
@@ -558,6 +562,7 @@ void callbackOnOff(char* topic, byte* payload, unsigned int length) {
     int r = get10Num(payloadSTR[0])*16+get10Num(payloadSTR[1]);
     int g = get10Num(payloadSTR[2])*16+get10Num(payloadSTR[3]);
     int b = get10Num(payloadSTR[4])*16+get10Num(payloadSTR[5]);
+    rgbColorMode0 = strip.Color(r, g, b);
     Serial.print(r);
     Serial.print(' ');
     Serial.print(g);
@@ -633,27 +638,7 @@ void loop()
     if (OnOFF == 1){
       if (mode == 0){
         if (color == 0){
-            strip.fill(strip.Color(255, 109, 0));
-            strip.show();
-        }
-        if (color == 1){
-            strip.fill(strip.Color(255, 138, 18));
-            strip.show();
-        }
-        if (color == 2){
-            strip.fill(strip.Color(255, 161, 72));
-            strip.show();
-        }
-        if (color == 3){
-            strip.fill(strip.Color(255, 180, 107));
-            strip.show();
-        }
-        if (color == 4){
-            strip.fill(strip.Color(255, 196, 137));
-            strip.show();
-        }
-        if (color == 5){
-            strip.fill(strip.Color(255, 209, 163));
+            strip.fill(rgbColorMode0);
             strip.show();
         }
       }
