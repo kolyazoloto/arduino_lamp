@@ -21,7 +21,7 @@ PubSubClient client(espClient);
 int mode = 0;
 bool OnOFF = 0;
 int color = 0;
-                    
+char brightnessARR[3];                    
 int get10Num(char bukva){
   switch (bukva){
     case '0':
@@ -103,6 +103,7 @@ void on_lines(int r,int g,int b,int vverhILIvniz=0, int st = 0, int fin = LED_CO
 uint32_t rgbcolor;
 void randbow_time(){
   for (uint16_t i=0;i < 65536; i += 128){
+    client.loop();
     if(mode != 1) return;
     rgbcolor = strip.ColorHSV(i);
     strip.fill(rgbcolor);
@@ -232,8 +233,9 @@ void grad_tudasuda(int r2,int g2,int b2,int r3,int g3,int b3,int sh)
   colorMode = color;
   delay(3000);
   for (int j = 0; j < sh; j++){
-      if(mode != 2) return;
-      if(color != colorMode) return;
+     client.loop();
+     if(mode != 2) return;
+     if(color != colorMode) return;
      grad(r2-r1_scale*j,g2-g1_scale*j,b2-b1_scale*j,r3+r1_scale*j,g3+g1_scale*j,b3+b1_scale*j);
      strip.show();
      delay(10);
@@ -242,11 +244,12 @@ void grad_tudasuda(int r2,int g2,int b2,int r3,int g3,int b3,int sh)
   strip.show();
   delay(3000);
   for (int j = 0; j < sh; j++){
+    client.loop();
     if(mode != 2) return;
     if(color != colorMode) return;
-     grad(r3+r1_scale*j,g3+g1_scale*j,b3+b1_scale*j,r2-r1_scale*j,g2-g1_scale*j,b2-b1_scale*j);
-     strip.show();
-     delay(10);
+    grad(r3+r1_scale*j,g3+g1_scale*j,b3+b1_scale*j,r2-r1_scale*j,g2-g1_scale*j,b2-b1_scale*j);
+    strip.show();
+    delay(10);
   }
 }
 void rand_pix(int colorMod = 0)
@@ -420,6 +423,7 @@ void lgbt_kolya()
 {
     if (color == 0){
       for (int k=0;k!=65536;k += 1024){
+        client.loop();
         if(mode != 5 || color != 0) return;
         for(int i=0;i<LED_ROW;i++)
         {
@@ -434,6 +438,7 @@ void lgbt_kolya()
     //РЕЖИМ ОТ ЦЕНТРА
     if (color == 1){
       for (int k=0;k!=65536;k += 1024){
+        client.loop();
         if(mode != 5 || color != 1) return;
         for(int i=0;i<LED_COL;i++)
         {
@@ -449,6 +454,7 @@ void lgbt_kolya()
     }
     if (color == 2){
       for (int k=0;k!=65536;k += 1024){
+        client.loop();
         if(mode != 5 || color != 2) return;
         for(int i=0;i<LED_COL;i++){
           cyrc_color = color_mode2[i] + k;
@@ -483,40 +489,44 @@ ICACHE_RAM_ATTR void interruptRisingFunc(){
   prev_time = millis();
   while(state = digitalRead(BUTTON)  == 1){
     now_time = millis();
-    if ((now_time - prev_time) > 1000){
+    if ((now_time - prev_time) > 1500){
       if (brightness_reverse == 0) {brightness++;}
       else {brightness--;}
       if (brightness == 255 || brightness == 0) {
         brightness_reverse = !brightness_reverse;
         strip.setBrightness(brightness);
+        client.publish("homeassistant/light/ESP-3bd20b/brightness/status",itoa(brightness,brightnessARR,3));
         strip.show();
         Serial.println (brightness);
         break;
       } 
       strip.setBrightness(brightness);
+      client.publish("homeassistant/light/ESP-3bd20b/brightness/status",itoa(brightness,brightnessARR,3));
       strip.show();
       Serial.println (brightness);
     }
     delayMicroseconds(10000);
   }
-  if ((now_time - prev_time) > 1000) long_pressed = 1;
+  if ((now_time - prev_time) > 1500) long_pressed = 1;
   if (long_pressed == 0){
     if (buttonPushed == 0){
       checkButton.once(1,callback);
     }
-    if (buttonPushed < 3){
+    if (buttonPushed < 4){
       buttonPushed++;
     }
     Serial.println ("button pushed");
     Serial.println (buttonPushed);
   }
 }
+char modeARR[2];
 void callback(){
   if (buttonPushed == 1){
     mode++;
     if (mode == 6){
       mode = 0;  
     }
+    client.publish("homeassistant/light/ESP-3bd20b/effect/status",itoa(mode,modeARR,10));
     vrem = -1;
     color = 0;
     first_shit = true;
@@ -530,6 +540,18 @@ void callback(){
     else {color = 0;}
     Serial.println ("change color"); 
    }
+  if (buttonPushed == 3){
+     OnOFF = !OnOFF;
+     if (OnOFF == 1){
+       client.publish("homeassistant/light/ESP-3bd20b/status","1");
+     }
+     else{
+       client.publish("homeassistant/light/ESP-3bd20b/status","0");
+       strip.clear();
+       strip.show(); 
+     }
+     
+  }
   buttonPushed = 0; 
 }
 void reconnect() {
@@ -545,12 +567,12 @@ void reconnect() {
       // Once connected, publish an announcement...
       client.subscribe("homeassistant/light/ESP-3bd20b/rgb/set");
       client.subscribe("homeassistant/light/ESP-3bd20b/switch");
+      client.subscribe("homeassistant/light/ESP-3bd20b/effect/set");
       
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
       delay(5000);
     }
   }
@@ -582,6 +604,9 @@ void callbackOnOff(char* topic, byte* payload, unsigned int length) {
       strip.clear();
       strip.show();  
     }
+  }
+  else if(!strcmp(topic,"homeassistant/light/ESP-3bd20b/effect/set")){
+    mode = get10Num(payloadSTR[0]);
   }
   else{
     Serial.println(payloadSTR);
