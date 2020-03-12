@@ -627,6 +627,10 @@ void setup()
   Serial.println(WiFi.localIP());
   client.setServer(mqtt_server, 1883);
   client.setCallback(callbackOnOff);
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.publish("homeassistant/light/ESP-3bd20b/status","0");
 }
 
 void loop()
@@ -635,6 +639,7 @@ void loop()
      reconnect();
     }
     client.loop();
+   
     if (OnOFF == 1){
       if (mode == 0){
         if (color == 0){
