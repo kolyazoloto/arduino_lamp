@@ -5,6 +5,7 @@
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
+#include <ESP8266WebServer.h>
 
 const char* ssid = "LALALA";
 const char* password = "Kolyathegod";
@@ -614,6 +615,32 @@ void callbackOnOff(char* topic, byte* payload, unsigned int length) {
   memset(payloadSTR, 0, sizeof(payloadSTR));
 
 }
+
+
+
+
+
+const char index_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE HTML><html><head>
+  <title>ESP Input Form</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  </head><body>
+  <form action="/get">
+    input1: <input type="text" name="input1">
+    <input type="submit" value="Submit">
+  </form><br>
+  <form action="/get">
+    input2: <input type="text" name="input2">
+    <input type="submit" value="Submit">
+  </form><br>
+  <form action="/get">
+    input3: <input type="text" name="input3">
+    <input type="submit" value="Submit">
+  </form>
+</body></html>)rawliteral";
+
+
+bool Connected = false;
 void setup()
 {
   pinMode(BUTTON, INPUT_PULLUP);
@@ -623,88 +650,126 @@ void setup()
   Serial.println("starting");
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  ArduinoOTA.setHostname("LAMP");
-  ArduinoOTA.onStart([]() {
-  Serial.println("Start");  //  "Начало OTA-апдейта"
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("\nEnd");  //  "Завершение OTA-апдейта"
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    //  "Ошибка при аутентификации"
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    //  "Ошибка при начале OTA-апдейта"
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    //  "Ошибка при подключении"
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    //  "Ошибка при получении данных"
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-    //  "Ошибка при завершении OTA-апдейта"
-  });
-  ArduinoOTA.begin();
-  Serial.println("Ready");  //  "Готово"
-  Serial.print("IP address: ");  //  "IP-адрес: "
-  Serial.println(WiFi.localIP());
-  client.setServer(mqtt_server, 1883);
-  client.setCallback(callbackOnOff);
-  if (!client.connected()) {
-    reconnect();
+  for (int i=0;i<10;i++){
+	  if (WiFi.status() == WL_CONNECTED){
+		  Connected = true;
+	  }
+	  else{
+		  delay(1000);
+	  }
   }
-  client.publish("homeassistant/light/ESP-3bd20b/status","0");
+  if (Connected == false){
+	  Serial.println("Starting AP at");
+	  bool result = WiFi.softAP("ESPsoftAP_01", "64146414q");
+	  if (result == true){
+	      Serial.println("AP is OK")	  	
+	  }
+	  ESP8266WebServer server(80);
+	  // Send web page with input fields to client
+      server.on("/", [](){
+		  server.send(200, "text/html", index_html);
+	  });
+	  server.on("/", [](){
+		  server.send(200, "text/html", index_html);
+	  });
+	  server.on("/", [](){
+		  server.send(200, "text/html", index_html);
+	  });
+	  
+	  
+	  
+	  
+	  
+	  
+  }
+  else{
+	  ArduinoOTA.setHostname("LAMP");
+	  ArduinoOTA.onStart([]() {
+	  Serial.println("Start");  //  "Начало OTA-апдейта"
+	  });
+	  ArduinoOTA.onEnd([]() {
+		Serial.println("\nEnd");  //  "Завершение OTA-апдейта"
+	  });
+	  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+		Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+	  });
+	  ArduinoOTA.onError([](ota_error_t error) {
+		Serial.printf("Error[%u]: ", error);
+		if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+		//  "Ошибка при аутентификации"
+		else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+		//  "Ошибка при начале OTA-апдейта"
+		else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+		//  "Ошибка при подключении"
+		else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+		//  "Ошибка при получении данных"
+		else if (error == OTA_END_ERROR) Serial.println("End Failed");
+		//  "Ошибка при завершении OTA-апдейта"
+	  });
+	  ArduinoOTA.begin();
+	  Serial.println("Ready");  //  "Готово"
+	  Serial.print("IP address: ");  //  "IP-адрес: "
+	  Serial.println(WiFi.localIP());
+	  client.setServer(mqtt_server, 1883);
+	  client.setCallback(callbackOnOff);
+	  if (!client.connected()) {
+		reconnect();
+	  }
+	  client.publish("homeassistant/light/ESP-3bd20b/status","0");
+  }
+    
 }
 
 void loop()
  {  ArduinoOTA.handle();
-    if (!client.connected()) {
-     reconnect();
-    }
-    client.loop();
-   
-    if (OnOFF == 1){
-      if (mode == 0){
-        if (color == 0){
-            strip.fill(rgbColorMode0);
-            strip.show();
-        }
-      }
-      if (mode == 1){
-        randbow_time();
-      }
-      if (mode == 2){
-        if (color == 0){
-          grad_tudasuda(0,255,0,0,0,255,255);
-        }
-        if (color == 1){
-          grad_tudasuda(255,0,0,255,255,0,255);
-        }
-        if (color == 2){
-          grad_tudasuda(255,255,255,0,0,0,255);
-        }
-        if (color == 3){
-          grad_tudasuda(0,255,0,255,255,0,255);
-        }
-        if (color == 4){
-          grad_tudasuda(255,0,255,124,25,200,255);
-        }
-        if (color == 5){
-          grad_tudasuda(255,100,0,0,100,255,255);
-        }
-      }
-      if (mode == 3){
-        rand_pix(color);
-      }
-      if (mode == 4){
-        burn2(1,color);
-      }
-      if (mode == 5){
-        lgbt_kolya();
-      }
-    }
+ 
+	if (Connected == true){
+		if (!client.connected()) {
+		 reconnect();
+		}
+		client.loop();
+	   
+		if (OnOFF == 1){
+		  if (mode == 0){
+			if (color == 0){
+				strip.fill(rgbColorMode0);
+				strip.show();
+			}
+		  }
+		  if (mode == 1){
+			randbow_time();
+		  }
+		  if (mode == 2){
+			if (color == 0){
+			  grad_tudasuda(0,255,0,0,0,255,255);
+			}
+			if (color == 1){
+			  grad_tudasuda(255,0,0,255,255,0,255);
+			}
+			if (color == 2){
+			  grad_tudasuda(255,255,255,0,0,0,255);
+			}
+			if (color == 3){
+			  grad_tudasuda(0,255,0,255,255,0,255);
+			}
+			if (color == 4){
+			  grad_tudasuda(255,0,255,124,25,200,255);
+			}
+			if (color == 5){
+			  grad_tudasuda(255,100,0,0,100,255,255);
+			}
+		  }
+		  if (mode == 3){
+			rand_pix(color);
+		  }
+		  if (mode == 4){
+			burn2(1,color);
+		  }
+		  if (mode == 5){
+			lgbt_kolya();
+		  }
+		}
+	}
   }
 
 
